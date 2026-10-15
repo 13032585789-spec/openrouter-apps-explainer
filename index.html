@@ -90,6 +90,7 @@ section{margin-bottom:34px}
 code{font:400 .9em var(--mono);background:var(--surface2);padding:1px 6px;border-radius:5px}
 .cap{font-size:12.5px;color:var(--ink2);margin-top:8px}
 
+.slide{margin-bottom:12px}.slide label{display:block;font-size:14px;margin-bottom:4px}.slide b{font:600 14px var(--mono);color:var(--accent)}.slide input{width:100%;accent-color:var(--accent);min-height:28px}
 /* chart */
 .chart{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
 .legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--ink2);margin-bottom:12px}
@@ -133,7 +134,7 @@ input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid
 
 <section aria-labelledby="a">
   <h2 id="a">Headers in, listing out</h2>
-  <p class="sub">Left: the request your app sends. Right: the Global Ranking list for "Today", with the five real top rows from 15 October 2026 [1] and your example app.</p>
+  <p class="sub">Left: the request your app sends. Right: the Global Ranking list for "Today". The ten rows are real, as seen on 15 October 2026 [1]. Drag the slider to see where an app with your token volume would land.</p>
   <div class="pair">
     <div>
       <div class="req" id="req">
@@ -161,10 +162,11 @@ input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid
     </div>
 
     <div class="board" aria-live="polite">
+      <div class="slide"><label for="tokens">Your app's tokens in the "Today" window: <b id="tokv"></b></label><input type="range" id="tokens" min="0" max="100" value="67" step="0.5"></div>
       <div class="state" id="state"></div>
       <div id="rows"></div>
       <ul class="notes" id="notes"></ul>
-      <div class="cap">Real rows: Apps page, "Global Ranking", window "Today", 15 October 2026 [1]. Your app's position depends on its tokens, so it is shown after the top five.</div>
+      <div class="cap">Real rows: Apps page, "Global Ranking", window "Today", top ten, 15 October 2026 [1]. This is the Popular ranking, by token volume. Your app and its numbers are an example.</div>
     </div>
   </div>
 </section>
@@ -204,13 +206,20 @@ input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid
 
 <script>
 const KNOWN = ['cli-agent','ide-extension','image-gen','video-gen','general-chat','legal','roleplay','game'];
-const TOP5 = [
-  {n:'Hermes Agent', t:'1.92T', c:['personal-agents','cli-agent']},
-  {n:'Claude Code', t:'1.5T', c:['cli-agent']},
-  {n:'Kilo Code', t:'951B', c:['cli-agent','ide-extension']},
-  {n:'Cline', t:'624B', c:['ide-extension','cli-agent']},
-  {n:'OpenClaw', t:'475B', c:['personal-agents','cli-agent']},
+const TOP10 = [
+  {n:'Hermes Agent', b:1920, c:['personal-agents','cli-agent']},
+  {n:'Claude Code', b:1500, c:['cli-agent']},
+  {n:'Kilo Code', b:951, c:['cli-agent','ide-extension']},
+  {n:'Cline', b:624, c:['ide-extension','cli-agent']},
+  {n:'OpenClaw', b:475, c:['personal-agents','cli-agent']},
+  {n:'pi', b:451, c:['cli-agent']},
+  {n:'Freebuff', b:409, c:[]},
+  {n:'omp', b:331, c:['cli-agent']},
+  {n:'Codex', b:196, c:['cli-agent']},
+  {n:'DeepSeek Harness', b:189, c:[]},
 ];
+const fmt = b => b >= 1000 ? (b/1000).toFixed(2).replace(/0$/,'') + 'T' : (b < 10 ? b.toFixed(1) : Math.round(b)) + 'B';
+const myTokens = () => Math.pow(10, parseFloat(document.getElementById('tokens').value) * 3.699 / 100);
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 const ICON = {
@@ -229,6 +238,7 @@ KNOWN.forEach((c,i) => {
 });
 ['h-ref-on','h-ref','h-title-on','h-title','h-cat-on','h-cat-custom','h-vis-on','h-vis','existing'].forEach(id => $(id).addEventListener('input', renderA));
 catsBox.addEventListener('change', renderA);
+$('tokens').addEventListener('input', renderA);
 
 function parseCats(){
   if (!$('h-cat-on').checked) return null;
@@ -287,13 +297,30 @@ function renderA(){
   $('state').className = 'state ' + cls;
   $('state').innerHTML = icon + '<span>' + text + '</span>';
 
-  let html = TOP5.map((a,i) => '<div class="row"><div class="pos">'+(i+1)+'</div><div><div class="nm">'+a.n+'</div><div class="tags">'+a.c.map(c=>'<span class="t">'+c+'</span>').join('')+'</div></div><div class="tok">'+a.t+'</div></div>').join('');
-  if (mode !== 'none'){
-    const ghost = (mode === 'hidden' || mode === 'unchanged') ? ' ghost' : '';
-    const nm = title || ref;
-    const tagHtml = cats ? cats.used.map(catTag).join('') : '';
-    const side = mode === 'hidden' ? 'not listed' : (mode === 'unchanged' ? 'depends' : 'tokens');
-    html += '<div class="row me'+ghost+'"><div class="pos">…</div><div><div class="nm">'+esc(nm)+'</div><div class="tags">'+tagHtml+'</div></div><div class="tok">'+side+'</div></div>';
+  const tk = myTokens();
+  $('tokv').textContent = fmt(tk);
+  const above = TOP10.filter(a => a.b > tk).length;      // real rows ranked above the example app
+  const rank = above + 1;
+  const rowHtml = (pos, a, extra) => '<div class="row'+(extra||'')+'"><div class="pos">'+pos+'</div><div><div class="nm">'+a.n+'</div><div class="tags">'+a.c.map(c=>'<span class="t">'+c+'</span>').join('')+'</div></div><div class="tok">'+fmt(a.b)+'</div></div>';
+  const nm = esc(title || ref);
+  const tagHtml = cats ? cats.used.map(catTag).join('') : '';
+  const meRow = (pos, tokText, ghost) => '<div class="row me'+(ghost?' ghost':'')+'"><div class="pos">'+pos+'</div><div><div class="nm">'+nm+'</div><div class="tags">'+tagHtml+'</div></div><div class="tok">'+tokText+'</div></div>';
+  let html = '';
+  if (mode === 'public'){
+    TOP10.forEach((a,i) => {
+      if (i === above) html += meRow(rank, fmt(tk), false);
+      html += rowHtml(i + 1 + (i >= above ? 1 : 0), a);
+    });
+    if (above >= TOP10.length) html += meRow('11+', fmt(tk), false);
+    notes.push(above >= TOP10.length ? 'At '+fmt(tk)+' the app is below the tenth row (189B), so it would sit further down the list.' : 'At '+fmt(tk)+' the app ranks <strong>#'+rank+'</strong> among these ten. Drag the slider to move it.');
+  } else {
+    html = TOP10.map((a,i) => rowHtml(i+1, a)).join('');
+    if (mode === 'hidden'){
+      html += meRow('–', 'not listed', true);
+      notes.push('If this app were public at '+fmt(tk)+', it would rank '+(above >= TOP10.length ? 'below #10' : '#'+rank)+'. Hidden means it never appears here, however many tokens it uses.');
+    } else if (mode === 'unchanged'){
+      html += meRow('–', 'depends', true);
+    }
   }
   $('rows').innerHTML = html;
   $('notes').innerHTML = notes.map(n => '<li>'+n+'</li>').join('');
