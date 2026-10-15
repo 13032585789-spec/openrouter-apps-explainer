@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Apps Get Listed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: the literal HTTP request on the left, the public Apps page it produces on the right,
+   then the Trending chart. Tokens first, components after. */
+:root{
+  --bg:#f3f5f9; --surface:#ffffff; --surface2:#e9edf5; --ink:#101a2e; --ink2:#4a5873; --line:#d6dde9;
+  --accent:#2457e6; --accent-ink:#ffffff;
+  --good:#12714a; --good-bg:#e0f3ea; --warn:#8f5600; --warn-bg:#fff0d4; --bad:#a12a2a; --bad-bg:#fbe5e5;
+  --code-bg:#0f1b33; --code-ink:#dce7ff; --code-dim:#8aa0c6; --code-line:#25365c;
+  --mark-prev:#a3b3d0; --mark-now:#2457e6;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1428; --surface:#121f3a; --surface2:#1b2b4d; --ink:#e8eefc; --ink2:#a3b3d1; --line:#2a3b5f;
+    --accent:#7aa2ff; --accent-ink:#0b1428;
+    --good:#6fdca4; --good-bg:#0f3a2a; --warn:#ffc46b; --warn-bg:#3a2b0e; --bad:#ff9d9d; --bad-bg:#401818;
+    --code-bg:#08101f; --code-ink:#dce7ff; --code-dim:#7f93b8; --code-line:#1d2c4d;
+    --mark-prev:#4f6591; --mark-now:#7aa2ff; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1428; --surface:#121f3a; --surface2:#1b2b4d; --ink:#e8eefc; --ink2:#a3b3d1; --line:#2a3b5f;
+  --accent:#7aa2ff; --accent-ink:#0b1428;
+  --good:#6fdca4; --good-bg:#0f3a2a; --warn:#ffc46b; --warn-bg:#3a2b0e; --bad:#ff9d9d; --bad-bg:#401818;
+  --code-bg:#08101f; --code-ink:#dce7ff; --code-dim:#7f93b8; --code-line:#1d2c4d;
+  --mark-prev:#4f6591; --mark-now:#7aa2ff; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body);padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font:700 clamp(28px,5vw,40px)/1.1 var(--display);letter-spacing:-.01em;margin:0 0 10px;text-wrap:balance}
+h2{font:600 22px/1.2 var(--display);margin:0 0 6px;text-wrap:balance}
+p{margin:0 0 10px;max-width:68ch}
+.lead{color:var(--ink2);margin-bottom:26px}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px}
+section{margin-bottom:34px}
+.sub{color:var(--ink2);font-size:14px;margin-bottom:14px}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:780px){.pair{grid-template-columns:minmax(0,1fr)}}
+
+/* request panel */
+.req{min-width:0;overflow-wrap:anywhere;background:var(--code-bg);color:var(--code-ink);border-radius:14px;padding:16px 16px 14px;font:400 14px/1.5 var(--mono)}
+.req .line{color:var(--code-dim);overflow-wrap:anywhere}
+.req .line b{color:var(--code-ink);font-weight:500}
+.hdr{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:10px 0;border-top:1px solid var(--code-line)}
+.hdr:first-of-type{margin-top:10px}
+.hdr label{display:flex;align-items:center;gap:8px;font:500 13px/1.3 var(--mono);color:var(--code-ink);cursor:pointer;overflow-wrap:anywhere}
+.hdr input[type=checkbox]{width:18px;height:18px;accent-color:#7aa2ff;margin:0}
+.hdr input[type=text],.hdr select{width:100%;min-height:36px;padding:6px 9px;border-radius:8px;border:1px solid var(--code-line);background:rgba(255,255,255,.05);color:var(--code-ink);font:400 14px var(--mono)}
+.hdr input:disabled,.hdr select:disabled{opacity:.4}
+.hdr select option{color:#101a2e}
+.cats{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cat{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--code-line);border-radius:999px;padding:4px 10px;font:400 12.5px var(--mono);cursor:pointer;min-height:30px}
+.cat input{margin:0;accent-color:#7aa2ff}
+.scenario{display:flex;align-items:center;gap:9px;margin-top:12px;padding-top:12px;border-top:1px solid var(--code-line);font:400 13px var(--body);color:var(--code-ink);cursor:pointer}
+.scenario input{width:18px;height:18px;accent-color:#7aa2ff;margin:0}
+.hint{font:400 12.5px/1.4 var(--body);color:var(--code-dim)}
+
+/* listing preview */
+.board{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.state{display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:11px 13px;font-weight:600;margin-bottom:12px}
+.state svg{flex:none;margin-top:2px}
+.s-good{background:var(--good-bg);color:var(--good)} .s-warn{background:var(--warn-bg);color:var(--warn)} .s-bad{background:var(--bad-bg);color:var(--bad)}
+.row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line)}
+.row:last-of-type{border-bottom:0}
+.pos{font:500 13px var(--mono);color:var(--ink2);text-align:right}
+.nm{font-weight:600;overflow-wrap:anywhere}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.t{font:400 12px var(--mono);background:var(--surface2);color:var(--ink2);border-radius:6px;padding:1px 7px}
+.t.drop{background:var(--bad-bg);color:var(--bad);text-decoration:line-through}
+.t.maybe{background:var(--warn-bg);color:var(--warn)}
+.tok{font:500 14px var(--mono);font-variant-numeric:tabular-nums}
+.me{background:var(--surface2);border-radius:10px;border:1px dashed var(--accent)}
+.me.ghost{opacity:.55;border-style:dotted}
+.me .nm::after{content:"  your app (example)";font:400 12px var(--mono);color:var(--accent);font-weight:400}
+.notes{margin:12px 0 0;padding-left:18px;color:var(--ink2);font-size:14px}
+.notes li{margin:4px 0}
+code{font:400 .9em var(--mono);background:var(--surface2);padding:1px 6px;border-radius:5px}
+.cap{font-size:12.5px;color:var(--ink2);margin-top:8px}
+
+/* chart */
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--ink2);margin-bottom:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.bars{display:grid;gap:16px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:6px 14px;align-items:center}
+@media (max-width:560px){.app{grid-template-columns:minmax(0,1fr)}}
+.app .nm2{grid-column:1/-1;font-weight:600;font-size:15px}
+.track{display:grid;gap:5px}
+.bar{height:16px;border-radius:0 5px 5px 0;min-width:2px;transition:width .25s}
+.bar.prev{background:var(--mark-prev)} .bar.now{background:var(--mark-now)}
+.bl{display:flex;align-items:center;gap:8px;font:400 12.5px var(--mono);color:var(--ink2);font-variant-numeric:tabular-nums}
+.ranks{font-size:13px;color:var(--ink2);display:grid;gap:3px}
+.ranks b{color:var(--ink);font-weight:600}
+.omit{color:var(--warn);font-weight:600}
+details{margin-top:14px;font-size:14px}
+summary{cursor:pointer;color:var(--accent);font-weight:600;min-height:32px;display:flex;align-items:center}
+.edit{display:grid;grid-template-columns:minmax(60px,1.3fr) repeat(4,minmax(0,1fr));gap:6px;align-items:center;margin-top:8px;font-size:13px}
+.edit .h{color:var(--ink2);font-size:12px}
+.edit input{width:100%;min-width:0;min-height:36px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);padding:5px 8px;font:400 14px var(--mono)}
+.takeaway{border-top:1px solid var(--line);padding:14px 0;display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:6px 24px}
+@media (max-width:700px){.takeaway{grid-template-columns:minmax(0,1fr)}}
+.takeaway h3{font:600 17px/1.25 var(--display);margin:0}
+.takeaway p{margin:0 0 6px}
+.metric{font:400 13px var(--mono);color:var(--ink2)}
+footer{font-size:13px;color:var(--ink2);border-top:1px solid var(--line);padding-top:14px}
+footer a{color:var(--accent)}
+footer li{margin:3px 0;overflow-wrap:anywhere}
+input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.bar{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">OpenRouter Apps · written test, task 2</div>
+  <h1>How does an app get onto the Apps page?</h1>
+  <p class="lead">It sends a few request headers. Toggle them below and watch what the public page does. Then see why the "Trending" sort can surface a small app that the main ranking never would. Facts follow OpenRouter's public docs and Apps page as read on 15 October 2026. Anything marked as an example or invented is mine.</p>
+</header>
+
+<section aria-labelledby="a">
+  <h2 id="a">Headers in, listing out</h2>
+  <p class="sub">Left: the request your app sends. Right: the Global Ranking list for "Today", with the five real top rows from 15 October 2026 [1] and your example app.</p>
+  <div class="pair">
+    <div>
+      <div class="req" id="req">
+        <div class="line"><b>POST</b> https://openrouter.ai/api/v1/chat/completions</div>
+        <div class="line">Authorization: Bearer sk-or-…</div>
+
+        <div class="hdr"><label for="h-ref-on"><input type="checkbox" id="h-ref-on" checked>HTTP-Referer</label>
+          <div class="val"><input type="text" id="h-ref" value="https://myagent.dev" aria-label="HTTP-Referer value" autocomplete="off" spellcheck="false"></div></div>
+
+        <div class="hdr"><label for="h-title-on"><input type="checkbox" id="h-title-on" checked>X-OpenRouter-Title</label>
+          <div class="val"><input type="text" id="h-title" value="My Agent" aria-label="X-OpenRouter-Title value" autocomplete="off"></div></div>
+
+        <div class="hdr"><label for="h-cat-on"><input type="checkbox" id="h-cat-on" checked>X-OpenRouter-Categories</label>
+          <div class="val">
+            <div class="cats" id="cats"></div>
+            <input type="text" id="h-cat-custom" placeholder="your own, comma separated" aria-label="Custom categories" autocomplete="off" spellcheck="false" style="margin-top:8px">
+            <div class="hint" style="margin-top:6px">Up to 2 per request. The values above are examples from the docs.</div>
+          </div></div>
+
+        <div class="hdr"><label for="h-vis-on"><input type="checkbox" id="h-vis-on">X-OpenRouter-App-Visibility</label>
+          <div class="val"><select id="h-vis" aria-label="X-OpenRouter-App-Visibility value"><option value="hidden">hidden</option><option value="public">public</option></select></div></div>
+
+        <label class="scenario" for="existing"><input type="checkbox" id="existing">This URL already has an app on OpenRouter</label>
+      </div>
+    </div>
+
+    <div class="board" aria-live="polite">
+      <div class="state" id="state"></div>
+      <div id="rows"></div>
+      <ul class="notes" id="notes"></ul>
+      <div class="cap">Real rows: Apps page, "Global Ranking", window "Today", 15 October 2026 [1]. Your app's position depends on its tokens, so it is shown after the top five.</div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="b">
+  <h2 id="b">Popular rewards size. Trending rewards growth.</h2>
+  <p class="sub">Popular ranks by total tokens in the window. Trending ranks by the window's volume minus the average of the three earlier periods of equal length, and leaves out apps with no excess growth [3]. The three apps and all numbers are invented, in billions of tokens. Open the editor to change them.</p>
+  <div class="chart">
+    <div class="legend"><span><i style="background:var(--mark-prev)"></i>Average of the 3 earlier periods</span><span><i style="background:var(--mark-now)"></i>This window</span></div>
+    <div class="bars" id="bars"></div>
+    <p class="cap" id="verdict" style="margin-top:14px"></p>
+    <details>
+      <summary>Edit the invented numbers</summary>
+      <div class="edit" id="edit"></div>
+    </details>
+  </div>
+</section>
+
+<section aria-labelledby="c">
+  <h2 id="c">What Infron could take from it</h2>
+  <p class="sub">My read, not a forecast. None of this is tested.</p>
+  <div class="takeaway"><h3>Make public listing opt-in</h3><div><p>OpenRouter lists a new app publicly unless it sends "hidden". Infron's buyers care about data governance, so the default should be private, with the choice explained from the Trust Center.</p><div class="metric">Metric: opt-in rate among builders asked</div></div></div>
+  <div class="takeaway"><h3>Per-app analytics before a leaderboard</h3><div><p>With few apps a ranking looks thin. Give each API key an app page with usage by model and route first, and add a Trending view once there are enough apps for it to mean something.</p><div class="metric">Metric: share of active keys that send an app header</div></div></div>
+  <div class="takeaway"><h3>One small dataset, with a citation line</h3><div><p>For example provider retention and training policy by route, taken from the Trust Center, with no customer data. Show an updated date, since stale policy data is the risk.</p><div class="metric">Metric: referring domains and docs visits</div></div></div>
+</section>
+
+<footer>
+  <p><strong>Sources, read on 15 October 2026</strong></p>
+  <ul>
+    <li>[1] OpenRouter, Apps: <a href="https://openrouter.ai/apps">openrouter.ai/apps</a></li>
+    <li>[2] OpenRouter, App Attribution: <a href="https://openrouter.ai/docs/app-attribution">openrouter.ai/docs/app-attribution</a></li>
+    <li>[3] OpenRouter, Data API, app rankings dataset: <a href="https://openrouter.ai/docs/cookbook/administration/data-api">openrouter.ai/docs/cookbook/administration/data-api</a></li>
+  </ul>
+  <p>I am not affiliated with OpenRouter, and this page calls none of its APIs. I only know the category examples the docs show, so OpenRouter's real list is longer. The request line is a typical chat-completions call, included for context.</p>
+</footer>
+</div>
+
+<script>
+const KNOWN = ['cli-agent','ide-extension','image-gen','video-gen','general-chat','legal','roleplay','game'];
+const TOP5 = [
+  {n:'Hermes Agent', t:'1.92T', c:['personal-agents','cli-agent']},
+  {n:'Claude Code', t:'1.5T', c:['cli-agent']},
+  {n:'Kilo Code', t:'951B', c:['cli-agent','ide-extension']},
+  {n:'Cline', t:'624B', c:['ide-extension','cli-agent']},
+  {n:'OpenClaw', t:'475B', c:['personal-agents','cli-agent']},
+];
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const ICON = {
+  ok:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+  eyeoff:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.9 5.1A10.4 10.4 0 0 1 12 5c6 0 9.5 7 9.5 7a15 15 0 0 1-3 3.8M6.1 6.1C3.8 7.7 2.5 12 2.5 12s3.5 7 9.5 7a9.5 9.5 0 0 0 4-.9"/></svg>',
+  slash:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  dash:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>'
+};
+
+/* ---------- Part A ---------- */
+const catsBox = $('cats');
+KNOWN.forEach((c,i) => {
+  const l = document.createElement('label'); l.className = 'cat';
+  l.innerHTML = '<input type="checkbox" value="'+c+'"'+(c==='cli-agent'?' checked':'')+'> '+c;
+  catsBox.appendChild(l);
+});
+['h-ref-on','h-ref','h-title-on','h-title','h-cat-on','h-cat-custom','h-vis-on','h-vis','existing'].forEach(id => $(id).addEventListener('input', renderA));
+catsBox.addEventListener('change', renderA);
+
+function parseCats(){
+  if (!$('h-cat-on').checked) return null;
+  const picked = [...catsBox.querySelectorAll('input:checked')].map(i => i.value);
+  const raw = $('h-cat-custom').value.split(',').map(s => s.trim()).filter(Boolean);
+  const all = [...picked, ...raw];
+  return {used: all.slice(0,2), extra: all.slice(2)};
+}
+function catTag(c){
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(c) || c.length > 30) return '<span class="t drop">'+esc(c)+'</span>';
+  if (KNOWN.includes(c)) return '<span class="t">'+esc(c)+'</span>';
+  return '<span class="t maybe">'+esc(c)+'?</span>';
+}
+function renderA(){
+  ['h-ref','h-title','h-vis'].forEach(id => $(id).disabled = !$(id+'-on').checked);
+  $('h-cat-custom').disabled = !$('h-cat-on').checked;
+  catsBox.querySelectorAll('input').forEach(i => i.disabled = !$('h-cat-on').checked);
+
+  const ref = $('h-ref-on').checked ? $('h-ref').value.trim() : '';
+  const title = $('h-title-on').checked ? $('h-title').value.trim() : '';
+  const vis = $('h-vis-on').checked ? $('h-vis').value : '';
+  const existing = $('existing').checked;
+  const isLocal = /^(https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(ref);
+  const notes = [];
+  let tracked = true, mode;   // mode: public | hidden | unchanged | none
+  let cls, icon, text;
+
+  if (!ref){
+    tracked = false; mode = 'none'; cls = 's-bad'; icon = ICON.slash; text = 'Not tracked. No app page and no ranking entry.';
+    notes.push('Without <code>HTTP-Referer</code> no app page is created and usage does not appear in rankings [2].');
+    if (title) notes.push('<code>X-OpenRouter-Title</code> cannot create an app page on its own. It must travel with <code>HTTP-Referer</code> [2].');
+  } else if (isLocal && !title){
+    tracked = false; mode = 'none'; cls = 's-bad'; icon = ICON.slash; text = 'Not tracked. A localhost URL also needs a title.';
+    notes.push('<code>localhost</code> URLs must also send <code>X-OpenRouter-Title</code> to be tracked [2].');
+  } else if (existing){
+    mode = 'unchanged'; cls = 's-warn'; icon = ICON.dash; text = 'Visibility unchanged. The existing app keeps its current setting.';
+    notes.push('The visibility header only applies when a request creates a brand-new app. Later requests cannot change it, and changing it means contacting support [2].');
+  } else if (vis === 'hidden'){
+    mode = 'hidden'; cls = 's-warn'; icon = ICON.eyeoff; text = 'Hidden. Usage still counts for you, but the app stays off public pages.';
+    notes.push('Hidden apps are left out of public rankings, the marketplace and public app pages. Your own analytics still show the usage [2].');
+  } else {
+    mode = 'public'; cls = 's-good'; icon = ICON.ok; text = 'Public. This app can appear in rankings and on the Apps page.';
+    notes.push('A new app is public unless it sends <code>hidden</code>. Any other value, or no header, creates a public app [2].');
+  }
+  if (tracked){
+    notes.push('Identity is the URL <code>'+esc(ref)+'</code>, so there is nothing to sign up for [2].');
+    if (!title) notes.push('No title sent. The docs say the header sets the display name and do not say what shows without it [2].');
+  }
+
+  const cats = tracked ? parseCats() : null;
+  if (cats){
+    if (cats.extra.length) notes.push('Only 2 categories per request are read here. '+cats.extra.length+' extra ignored [2].');
+    notes.push('Categories that are not recognised are dropped silently, with no error. Struck-through means this demo knows the format is invalid. A "?" means only OpenRouter knows if it is on its list [2].');
+  }
+
+  $('state').className = 'state ' + cls;
+  $('state').innerHTML = icon + '<span>' + text + '</span>';
+
+  let html = TOP5.map((a,i) => '<div class="row"><div class="pos">'+(i+1)+'</div><div><div class="nm">'+a.n+'</div><div class="tags">'+a.c.map(c=>'<span class="t">'+c+'</span>').join('')+'</div></div><div class="tok">'+a.t+'</div></div>').join('');
+  if (mode !== 'none'){
+    const ghost = (mode === 'hidden' || mode === 'unchanged') ? ' ghost' : '';
+    const nm = title || ref;
+    const tagHtml = cats ? cats.used.map(catTag).join('') : '';
+    const side = mode === 'hidden' ? 'not listed' : (mode === 'unchanged' ? 'depends' : 'tokens');
+    html += '<div class="row me'+ghost+'"><div class="pos">…</div><div><div class="nm">'+esc(nm)+'</div><div class="tags">'+tagHtml+'</div></div><div class="tok">'+side+'</div></div>';
+  }
+  $('rows').innerHTML = html;
+  $('notes').innerHTML = notes.map(n => '<li>'+n+'</li>').join('');
+}
+
+/* ---------- Part B ---------- */
+const apps = [
+  {name:'App A, large and flat', prev:[900,900,900], cur:900},
+  {name:'App B, small and doubling', prev:[50,50,50], cur:100},
+  {name:'App C, mid-size and shrinking', prev:[400,400,400], cur:300},
+];
+const edit = $('edit');
+edit.innerHTML = '<div class="h">App</div><div class="h">Prev 1</div><div class="h">Prev 2</div><div class="h">Prev 3</div><div class="h">Window</div>' +
+  apps.map((a,i) => '<div>'+esc(a.name.split(',')[0])+'</div>' +
+    [0,1,2].map(k => '<input type="number" min="0" data-i="'+i+'" data-k="'+k+'" value="'+a.prev[k]+'" aria-label="'+esc(a.name)+' earlier period '+(k+1)+'">').join('') +
+    '<input type="number" min="0" data-i="'+i+'" data-k="cur" value="'+a.cur+'" aria-label="'+esc(a.name)+' this window">').join('');
+edit.addEventListener('input', e => {
+  const t = e.target; if (t.dataset.i === undefined) return;
+  const v = Math.max(0, parseFloat(t.value) || 0), a = apps[+t.dataset.i];
+  if (t.dataset.k === 'cur') a.cur = v; else a.prev[+t.dataset.k] = v;
+  renderB();
+});
+function renderB(){
+  const avg = a => (a.prev[0]+a.prev[1]+a.prev[2])/3;
+  const max = Math.max(1, ...apps.map(a => Math.max(a.cur, avg(a))));
+  const pop = apps.map((a,i)=>({i,v:a.cur})).sort((x,y)=>y.v-x.v);
+  const popRank = {}; pop.forEach((p,r)=>popRank[p.i]=r+1);
+  const ex = apps.map((a,i)=>({i,v:a.cur-avg(a)}));
+  const keep = ex.filter(x=>x.v>0).sort((x,y)=>y.v-x.v);
+  const trRank = {}; keep.forEach((x,r)=>trRank[x.i]=r+1);
+  $('bars').innerHTML = apps.map((a,i) => {
+    const wp = (avg(a)/max*100).toFixed(1), wn = (a.cur/max*100).toFixed(1);
+    const tr = trRank[i] ? '<b>#'+trRank[i]+'</b> (+'+(a.cur-avg(a)).toFixed(0)+'B excess)' : '<span class="omit">left out, no excess growth</span>';
+    return '<div class="app"><div class="nm2">'+esc(a.name)+'</div>' +
+      '<div class="track"><div class="bl"><div class="bar prev" style="width:'+wp+'%"></div>'+avg(a).toFixed(0)+'</div>' +
+      '<div class="bl"><div class="bar now" style="width:'+wn+'%"></div>'+a.cur.toFixed(0)+'</div></div>' +
+      '<div class="ranks"><div>Popular <b>#'+popRank[i]+'</b></div><div>Trending '+tr+'</div></div></div>';
+  }).join('');
+  const top = pop[0].i, tt = keep.length ? keep[0].i : -1;
+  $('verdict').textContent = tt === -1 ? 'No app grew, so Trending returns nothing.' :
+    (top === tt ? 'The same app leads both lists with these numbers. Try changing App B.' :
+    apps[top].name.split(',')[0] + ' leads Popular. ' + apps[tt].name.split(',')[0] + ' leads Trending, with a smaller volume.');
+}
+renderA(); renderB();
+</script>
+</body>
+</html>
